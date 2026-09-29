@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: bacchus-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: bacchus
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
+    ports:
+      - "5433:5432"
+
+    volumes:
+      - bacchus_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  bacchus_postgres_data:
