@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 import app.models
 from app.permissions.router import router as permissions_router
 import app.core.cloudinary
@@ -23,6 +24,15 @@ app = FastAPI(
     title="Bacchus Distributor Management Platform",
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(auth_router)
 app.include_router(permissions_router)
