@@ -50,7 +50,7 @@ def create_state_endpoint(
     data: StateCreate,
     db: Session = Depends(get_database),
     _: User = Depends(
-        require_role("MASTER ADMIN")
+        require_role("SUPER ADMIN", "MASTER ADMIN")
     ),
 ):
     try:
@@ -69,7 +69,7 @@ def create_state_endpoint(
 def list_states_endpoint(
     db: Session = Depends(get_database),
     _: User = Depends(
-        require_role("MASTER ADMIN")
+        require_role("SUPER ADMIN", "MASTER ADMIN")
     ),
 ):
     return list_states(db)
@@ -84,7 +84,7 @@ def update_state_endpoint(
     data: StateUpdate,
     db: Session = Depends(get_database),
     _: User = Depends(
-        require_role("MASTER ADMIN")
+        require_role("SUPER ADMIN", "MASTER ADMIN")
     ),
 ):
     try:
@@ -113,7 +113,7 @@ def create_zone_endpoint(
     data: ZoneCreate,
     db: Session = Depends(get_database),
     _: User = Depends(
-        require_role("MASTER ADMIN")
+        require_role("SUPER ADMIN", "MASTER ADMIN")
     ),
 ):
     try:
@@ -133,7 +133,7 @@ def list_zones_endpoint(
     state_id: UUID | None = None,
     db: Session = Depends(get_database),
     _: User = Depends(
-        require_role("MASTER ADMIN")
+        require_role("SUPER ADMIN", "MASTER ADMIN")
     ),
 ):
     return list_zones(db, state_id)
@@ -148,7 +148,7 @@ def update_zone_endpoint(
     data: ZoneUpdate,
     db: Session = Depends(get_database),
     _: User = Depends(
-        require_role("MASTER ADMIN")
+        require_role("SUPER ADMIN", "MASTER ADMIN")
     ),
 ):
     try:
@@ -177,7 +177,7 @@ def create_area_endpoint(
     data: AreaCreate,
     db: Session = Depends(get_database),
     _: User = Depends(
-        require_role("MASTER ADMIN")
+        require_role("SUPER ADMIN", "MASTER ADMIN")
     ),
 ):
     try:
@@ -197,7 +197,7 @@ def list_areas_endpoint(
     zone_id: UUID | None = None,
     db: Session = Depends(get_database),
     _: User = Depends(
-        require_role("MASTER ADMIN")
+        require_role("SUPER ADMIN", "MASTER ADMIN")
     ),
 ):
     return list_areas(db, zone_id)
@@ -212,7 +212,7 @@ def update_area_endpoint(
     data: AreaUpdate,
     db: Session = Depends(get_database),
     _: User = Depends(
-        require_role("MASTER ADMIN")
+        require_role("SUPER ADMIN", "MASTER ADMIN")
     ),
 ):
     try:
