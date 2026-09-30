@@ -75,6 +75,16 @@ def _handle_sale_error(
     response_model=SaleResponse,
     status_code=status.HTTP_201_CREATED,
 )
+# ============================================================
+# CREATE SALE
+# SALESPERSON / MASTER ADMIN / SUPER ADMIN
+# ============================================================
+
+@router.post(
+    "",
+    response_model=SaleResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 def create_sale(
     payload: SaleCreate,
     db: Session = Depends(get_db),
@@ -84,20 +94,27 @@ def create_sale(
     ),
 ):
     """
-    Create a sale for a seller assigned to the
-    authenticated salesperson.
+    Create a sale.
 
-    Distributor and salesperson ownership are derived
-    server-side.
+    SALESPERSON:
+        distributor_id and salesperson_id are derived
+        from the authenticated salesperson.
+
+    MASTER ADMIN / SUPER ADMIN:
+        distributor_id and salesperson_id are supplied
+        by the frontend.
+
+    All seller/distributor/salesperson relationships
+    are validated by SaleService.
     """
 
-    if current_user.role.name != "SALESPERSON":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only a salesperson can create a sale.",
-        )
+    role = current_user.role.name
 
-    try:
+    # ========================================================
+    # SALESPERSON
+    # ========================================================
+
+    if role == "SALESPERSON":
 
         from app.salespersons.repository import (
             get_salesperson_by_user_id,
@@ -120,11 +137,47 @@ def create_sale(
                 detail="Salesperson account is inactive.",
             )
 
+        distributor_id = salesperson.distributor_id
+        salesperson_id = salesperson.id
+
+    # ========================================================
+    # MASTER ADMIN / SUPER ADMIN
+    # ========================================================
+
+    elif role in {"MASTER ADMIN", "SUPER ADMIN"}:
+
+        if payload.distributor_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Distributor is required.",
+            )
+
+        if payload.salesperson_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Salesperson is required.",
+            )
+
+        distributor_id = payload.distributor_id
+        salesperson_id = payload.salesperson_id
+
+    # ========================================================
+    # OTHER ROLES
+    # ========================================================
+
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to create a sale.",
+        )
+
+    try:
+
         sale = SaleService.create_sale(
             db=db,
             seller_id=payload.seller_id,
-            salesperson_id=salesperson.id,
-            distributor_id=salesperson.distributor_id,
+            salesperson_id=salesperson_id,
+            distributor_id=distributor_id,
             sale_date=payload.sale_date,
             items=[
                 {

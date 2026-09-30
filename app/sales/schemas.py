@@ -46,15 +46,29 @@ class SaleItemResponse(BaseModel):
 
 class SaleCreate(BaseModel):
     """
-    Sale is created by an authenticated salesperson.
+    Create a sale.
 
-    distributor_id, salesperson_id and created_by are derived
-    server-side.
+    SALESPERSON:
+        distributor_id and salesperson_id are derived
+        from the authenticated user.
 
-    total_amount and line_total are calculated server-side.
+    MASTER ADMIN / SUPER ADMIN:
+        distributor_id and salesperson_id must be supplied
+        from the frontend.
+
+    Seller relationship, territory and ownership are
+    validated server-side by SaleService.
     """
 
     seller_id: UUID
+
+    # Required for ADMIN.
+    # Ignored/derived for SALESPERSON.
+    distributor_id: UUID | None = None
+
+    # Required for ADMIN.
+    # Ignored/derived for SALESPERSON.
+    salesperson_id: UUID | None = None
 
     sale_date: date
 
