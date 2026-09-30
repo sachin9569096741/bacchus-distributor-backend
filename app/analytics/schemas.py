@@ -124,3 +124,39 @@ class SellerAnalyticsResponse(BaseModel):
     total_quantity: Decimal
 
     sales_trend: list[SalesTrendItem]
+
+
+
+class RevenueSummaryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    total_revenue: Decimal
+    total_sales: int
+    average_sale_value: Decimal
+
+
+class RevenueTrendItem(BaseModel):
+    date: date
+    sales_count: int
+    revenue: Decimal
+
+
+class RevenueByProductItem(BaseModel):
+    product_id: UUID
+    product_name: str
+    quantity_sold: Decimal
+    revenue: Decimal
+
+
+class RevenueByDistributorItem(BaseModel):
+    distributor_id: UUID
+    distributor_name: str
+    sales_count: int
+    revenue: Decimal
+
+
+class RevenueBySellerItem(BaseModel):
+    seller_id: UUID
+    seller_name: str
+    sales_count: int
+    revenue: Decimal

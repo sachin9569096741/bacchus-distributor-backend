@@ -1,5 +1,5 @@
 from uuid import UUID
-
+from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -7,6 +7,13 @@ from app.analytics.schemas import (
     AdminAnalyticsResponse,
     DistributorAnalyticsResponse,
     SellerAnalyticsResponse,
+)
+from app.analytics.schemas import (
+    RevenueSummaryResponse,
+    RevenueTrendItem,
+    RevenueByProductItem,
+    RevenueByDistributorItem,
+    RevenueBySellerItem,
 )
 from app.analytics.service import AnalyticsService
 from app.core.database import get_db
@@ -196,4 +203,233 @@ def get_seller_analytics(
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
         detail="You do not have seller analytics access",
+    )
+
+@router.get(
+    "/revenue",
+    response_model=RevenueSummaryResponse,
+    dependencies=[
+        Depends(require_permission("report.view"))
+    ],
+)
+def get_revenue(
+    from_date: date | None = None,
+    to_date: date | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+
+    role_name = current_user.role.name
+
+    if role_name in {"SUPER ADMIN", "MASTER ADMIN"}:
+        return AnalyticsService.get_revenue_summary(
+            db,
+            from_date=from_date,
+            to_date=to_date,
+        )
+
+    if role_name == "DISTRIBUTOR":
+
+        distributor = get_distributor_by_user_id(
+            db,
+            current_user.id,
+        )
+
+        if distributor is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Distributor profile not found",
+            )
+
+        return AnalyticsService.get_revenue_summary(
+            db,
+            distributor_id=distributor.id,
+            from_date=from_date,
+            to_date=to_date,
+        )
+
+    raise HTTPException(
+        status_code=403,
+        detail="Revenue access not available for this role",
+    )
+
+
+@router.get(
+    "/revenue/trend",
+    response_model=list[RevenueTrendItem],
+    dependencies=[
+        Depends(require_permission("report.view"))
+    ],
+)
+def get_revenue_trend(
+    from_date: date | None = None,
+    to_date: date | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+
+    role_name = current_user.role.name
+
+    if role_name in {"SUPER ADMIN", "MASTER ADMIN"}:
+        return AnalyticsService.get_revenue_trend(
+            db,
+            from_date=from_date,
+            to_date=to_date,
+        )
+
+    if role_name == "DISTRIBUTOR":
+
+        distributor = get_distributor_by_user_id(
+            db,
+            current_user.id,
+        )
+
+        if distributor is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Distributor profile not found",
+            )
+
+        return AnalyticsService.get_revenue_trend(
+            db,
+            distributor_id=distributor.id,
+            from_date=from_date,
+            to_date=to_date,
+        )
+
+    raise HTTPException(
+        status_code=403,
+        detail="Revenue access not available for this role",
+    )
+
+@router.get(
+    "/revenue/by-product",
+    response_model=list[RevenueByProductItem],
+    dependencies=[
+        Depends(require_permission("report.view"))
+    ],
+)
+def get_revenue_by_product(
+    from_date: date | None = None,
+    to_date: date | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+
+    role_name = current_user.role.name
+
+    if role_name in {"SUPER ADMIN", "MASTER ADMIN"}:
+        return AnalyticsService.get_revenue_by_product(
+            db,
+            from_date=from_date,
+            to_date=to_date,
+        )
+
+    if role_name == "DISTRIBUTOR":
+
+        distributor = get_distributor_by_user_id(
+            db,
+            current_user.id,
+        )
+
+        if distributor is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Distributor profile not found",
+            )
+
+        return AnalyticsService.get_revenue_by_product(
+            db,
+            distributor_id=distributor.id,
+            from_date=from_date,
+            to_date=to_date,
+        )
+
+    raise HTTPException(
+        status_code=403,
+        detail="Revenue access not available for this role",
+    )
+
+
+@router.get(
+    "/revenue/by-distributor",
+    response_model=list[RevenueByDistributorItem],
+    dependencies=[
+        Depends(require_permission("report.view"))
+    ],
+)
+def get_revenue_by_distributor(
+    from_date: date | None = None,
+    to_date: date | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+
+    if current_user.role.name not in {
+        "SUPER ADMIN",
+        "MASTER ADMIN",
+    }:
+        raise HTTPException(
+            status_code=403,
+            detail="Admin revenue access required",
+        )
+
+    return AnalyticsService.get_revenue_by_distributor(
+        db,
+        from_date=from_date,
+        to_date=to_date,
+    )
+
+@router.get(
+    "/revenue/by-seller",
+    response_model=list[RevenueBySellerItem],
+    dependencies=[
+        Depends(require_permission("report.view"))
+    ],
+)
+def get_revenue_by_seller(
+    seller_id: UUID | None = None,
+    from_date: date | None = None,
+    to_date: date | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+
+    role_name = current_user.role.name
+
+    if role_name in {
+        "SUPER ADMIN",
+        "MASTER ADMIN",
+    }:
+        return AnalyticsService.get_revenue_by_seller(
+            db,
+            seller_id=seller_id,
+            from_date=from_date,
+            to_date=to_date,
+        )
+
+    if role_name == "DISTRIBUTOR":
+
+        distributor = get_distributor_by_user_id(
+            db,
+            current_user.id,
+        )
+
+        if distributor is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Distributor profile not found",
+            )
+
+        return AnalyticsService.get_revenue_by_seller(
+            db,
+            distributor_id=distributor.id,
+            seller_id=seller_id,
+            from_date=from_date,
+            to_date=to_date,
+        )
+
+    raise HTTPException(
+        status_code=403,
+        detail="Revenue access not available for this role",
     )

@@ -22,3 +22,30 @@ class MasterAdminResponse(BaseModel):
     mobile: str | None
     role_id: UUID
     is_active: bool
+
+
+class StaffCreate(BaseModel):
+    email: EmailStr
+    mobile: str | None = Field(default=None, max_length=20)
+    password: str = Field(min_length=8, max_length=128)
+    role: str
+
+
+class StaffUpdate(BaseModel):
+    email: EmailStr | None = None
+    mobile: str | None = Field(default=None, max_length=20)
+    role: str | None = None
+
+
+class StaffStatusUpdate(BaseModel):
+    is_active: bool
+
+
+class StaffResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    email: str
+    mobile: str | None
+    role_id: UUID
+    is_active: bool

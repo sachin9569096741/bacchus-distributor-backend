@@ -40,32 +40,7 @@ def require_permission(permission_code: str) -> Callable:
     return permission_dependency
 
 
-def require_role(role_name: str) -> Callable:
-    def role_dependency(
-        current_user: User = Depends(get_current_user),
-        db: Session = Depends(get_database),
-    ) -> User:
-
-        role = db.scalar(
-            select(Role).where(
-                Role.id == current_user.role_id,
-                Role.name == role_name,
-                Role.is_active.is_(True),
-            )
-        )
-
-        if role is None:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Insufficient role privileges",
-            )
-
-        return current_user
-
-    return role_dependency
-
-
-def require_any_role(*role_names: str) -> Callable:
+def require_role(*role_names: str) -> Callable:
     def role_dependency(
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_database),
@@ -88,3 +63,11 @@ def require_any_role(*role_names: str) -> Callable:
         return current_user
 
     return role_dependency
+
+
+def require_any_role(*role_names: str) -> Callable:
+    """
+    Backward-compatible alias for require_role().
+    Allows one or multiple roles.
+    """
+    return require_role(*role_names)

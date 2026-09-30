@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal
 from uuid import UUID
 
@@ -7,6 +8,11 @@ from sqlalchemy.orm import Session
 from app.analytics.schemas import (
     AdminAnalyticsResponse,
     DistributorAnalyticsResponse,
+    RevenueByProductItem,
+    RevenueByDistributorItem,
+    RevenueBySellerItem,
+    RevenueSummaryResponse,
+    RevenueTrendItem,
     SellerAnalyticsResponse,
     SalesTrendItem,
     SellerPerformanceAnalytics,
@@ -75,6 +81,348 @@ class AnalyticsService:
 
         return AnalyticsService._decimal(result)
 
+
+        # ============================================================
+    # REVENUE SUMMARY
+    # ============================================================
+
+    @staticmethod
+    def get_revenue_summary(
+        db: Session,
+        seller_id: UUID | None = None,
+        distributor_id: UUID | None = None,
+        from_date: date | None = None,
+        to_date: date | None = None,
+    ) -> RevenueSummaryResponse:
+
+        stmt = select(
+            func.count(Sale.id),
+            func.coalesce(
+                func.sum(Sale.total_amount),
+                0,
+            ),
+        )
+
+        if seller_id is not None:
+            stmt = stmt.where(
+                Sale.seller_id == seller_id
+            )
+
+        if distributor_id is not None:
+            stmt = stmt.where(
+                Sale.distributor_id == distributor_id
+            )
+
+        if from_date is not None:
+            stmt = stmt.where(
+                Sale.sale_date >= from_date
+            )
+
+        if to_date is not None:
+            stmt = stmt.where(
+                Sale.sale_date <= to_date
+            )
+
+        sales_count, total_revenue = db.execute(stmt).one()
+
+        total_revenue = AnalyticsService._decimal(
+            total_revenue
+        )
+
+        sales_count = sales_count or 0
+
+        average_sale_value = (
+            total_revenue / sales_count
+            if sales_count
+            else Decimal("0")
+        )
+
+        return RevenueSummaryResponse(
+            total_revenue=total_revenue,
+            total_sales=sales_count,
+            average_sale_value=average_sale_value,
+        )
+
+        # ============================================================
+    # REVENUE TREND
+    # ============================================================
+
+    @staticmethod
+    def get_revenue_trend(
+        db: Session,
+        seller_id: UUID | None = None,
+        distributor_id: UUID | None = None,
+        from_date: date | None = None,
+        to_date: date | None = None,
+    ) -> list[RevenueTrendItem]:
+
+        stmt = (
+            select(
+                Sale.sale_date.label("date"),
+                func.count(Sale.id).label("sales_count"),
+                func.coalesce(
+                    func.sum(Sale.total_amount),
+                    0,
+                ).label("revenue"),
+            )
+            .group_by(Sale.sale_date)
+            .order_by(Sale.sale_date)
+        )
+
+        if seller_id is not None:
+            stmt = stmt.where(
+                Sale.seller_id == seller_id
+            )
+
+        if distributor_id is not None:
+            stmt = stmt.where(
+                Sale.distributor_id == distributor_id
+            )
+
+        if from_date is not None:
+            stmt = stmt.where(
+                Sale.sale_date >= from_date
+            )
+
+        if to_date is not None:
+            stmt = stmt.where(
+                Sale.sale_date <= to_date
+            )
+
+        rows = db.execute(stmt).all()
+
+        return [
+            RevenueTrendItem(
+                date=row.date,
+                sales_count=row.sales_count,
+                revenue=AnalyticsService._decimal(
+                    row.revenue
+                ),
+            )
+            for row in rows
+        ]
+
+        # ============================================================
+    # REVENUE BY PRODUCT
+    # ============================================================
+
+    @staticmethod
+    def get_revenue_by_product(
+        db: Session,
+        seller_id: UUID | None = None,
+        distributor_id: UUID | None = None,
+        from_date: date | None = None,
+        to_date: date | None = None,
+    ) -> list[RevenueByProductItem]:
+
+        stmt = (
+            select(
+                Product.id.label("product_id"),
+                Product.name.label("product_name"),
+                func.coalesce(
+                    func.sum(SaleItem.quantity),
+                    0,
+                ).label("quantity_sold"),
+                func.coalesce(
+                    func.sum(SaleItem.line_total),
+                    0,
+                ).label("revenue"),
+            )
+            .join(
+                SaleItem,
+                SaleItem.product_id == Product.id,
+            )
+            .join(
+                Sale,
+                Sale.id == SaleItem.sale_id,
+            )
+            .group_by(
+                Product.id,
+                Product.name,
+            )
+            .order_by(
+                func.coalesce(
+                    func.sum(SaleItem.line_total),
+                    0,
+                ).desc()
+            )
+        )
+
+        if seller_id is not None:
+            stmt = stmt.where(
+                Sale.seller_id == seller_id
+            )
+
+        if distributor_id is not None:
+            stmt = stmt.where(
+                Sale.distributor_id == distributor_id
+            )
+
+        if from_date is not None:
+            stmt = stmt.where(
+                Sale.sale_date >= from_date
+            )
+
+        if to_date is not None:
+            stmt = stmt.where(
+                Sale.sale_date <= to_date
+            )
+
+        rows = db.execute(stmt).all()
+
+        return [
+            RevenueByProductItem(
+                product_id=row.product_id,
+                product_name=row.product_name,
+                quantity_sold=AnalyticsService._decimal(
+                    row.quantity_sold
+                ),
+                revenue=AnalyticsService._decimal(
+                    row.revenue
+                ),
+            )
+            for row in rows
+        ]
+        # ============================================================
+    # REVENUE BY DISTRIBUTOR
+    # ============================================================
+
+    @staticmethod
+    def get_revenue_by_distributor(
+        db: Session,
+        from_date: date | None = None,
+        to_date: date | None = None,
+    ) -> list[RevenueByDistributorItem]:
+
+        stmt = (
+            select(
+                Distributor.id.label("distributor_id"),
+                Distributor.business_name.label(
+                    "distributor_name"
+                ),
+                func.count(Sale.id).label("sales_count"),
+                func.coalesce(
+                    func.sum(Sale.total_amount),
+                    0,
+                ).label("revenue"),
+            )
+            .outerjoin(
+                Sale,
+                Sale.distributor_id == Distributor.id,
+            )
+            .where(
+                Distributor.is_active.is_(True)
+            )
+            .group_by(
+                Distributor.id,
+                Distributor.business_name,
+            )
+            .order_by(
+                func.coalesce(
+                    func.sum(Sale.total_amount),
+                    0,
+                ).desc()
+            )
+        )
+
+        if from_date is not None:
+            stmt = stmt.where(
+                Sale.sale_date >= from_date
+            )
+
+        if to_date is not None:
+            stmt = stmt.where(
+                Sale.sale_date <= to_date
+            )
+
+        rows = db.execute(stmt).all()
+
+        return [
+            RevenueByDistributorItem(
+                distributor_id=row.distributor_id,
+                distributor_name=row.distributor_name,
+                sales_count=row.sales_count,
+                revenue=AnalyticsService._decimal(
+                    row.revenue
+                ),
+            )
+            for row in rows
+        ]
+
+    
+        # ============================================================
+    # REVENUE BY SELLER
+    # ============================================================
+
+    @staticmethod
+    def get_revenue_by_seller(
+        db: Session,
+        distributor_id: UUID | None = None,
+        seller_id: UUID | None = None,
+        from_date: date | None = None,
+        to_date: date | None = None,
+    ) -> list[RevenueBySellerItem]:
+
+        stmt = (
+            select(
+                Seller.id.label("seller_id"),
+                Seller.business_name.label("seller_name"),
+                func.count(Sale.id).label("sales_count"),
+                func.coalesce(
+                    func.sum(Sale.total_amount),
+                    0,
+                ).label("revenue"),
+            )
+            .outerjoin(
+                Sale,
+                Sale.seller_id == Seller.id,
+            )
+            .group_by(
+                Seller.id,
+                Seller.business_name,
+            )
+            .order_by(
+                func.coalesce(
+                    func.sum(Sale.total_amount),
+                    0,
+                ).desc()
+            )
+        )
+
+        if distributor_id is not None:
+            stmt = stmt.where(
+                Seller.distributor_id == distributor_id
+            )
+
+        if seller_id is not None:
+            stmt = stmt.where(
+                Seller.id == seller_id
+            )
+
+        if from_date is not None:
+            stmt = stmt.where(
+                Sale.sale_date >= from_date
+            )
+
+        if to_date is not None:
+            stmt = stmt.where(
+                Sale.sale_date <= to_date
+            )
+
+        rows = db.execute(stmt).all()
+
+        return [
+            RevenueBySellerItem(
+                seller_id=row.seller_id,
+                seller_name=row.seller_name,
+                sales_count=row.sales_count,
+                revenue=AnalyticsService._decimal(
+                    row.revenue
+                ),
+            )
+            for row in rows
+        ]
+    
     @staticmethod
     def _verified_payments(
         db: Session,
