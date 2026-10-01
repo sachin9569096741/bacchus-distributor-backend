@@ -20,4 +20,5 @@ class UserResponse(BaseModel):
     email: EmailStr
     mobile: str | None
     role_id: UUID
+    role_name: str
     is_active: bool
