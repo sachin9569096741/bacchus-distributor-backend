@@ -5,13 +5,8 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 
-# ============================================================
-# SALE ITEM
-# ============================================================
-
 class SaleItemCreate(BaseModel):
     product_id: UUID
-
     variant_id: UUID | None = None
 
     quantity: Decimal = Field(
@@ -27,23 +22,6 @@ class SaleItemCreate(BaseModel):
     )
 
 
-class SaleItemResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: UUID
-    sale_id: UUID
-    product_id: UUID
-    variant_id: UUID | None
-
-    quantity: Decimal
-    selling_price: Decimal
-    line_total: Decimal
-
-
-# ============================================================
-# CREATE SALE
-# ============================================================
-
 class SaleCreate(BaseModel):
     """
     Create a sale.
@@ -53,21 +31,13 @@ class SaleCreate(BaseModel):
         from the authenticated user.
 
     MASTER ADMIN / SUPER ADMIN:
-        distributor_id and salesperson_id must be supplied
-        from the frontend.
-
-    Seller relationship, territory and ownership are
-    validated server-side by SaleService.
+        distributor_id and salesperson_id must be supplied.
     """
 
     seller_id: UUID
 
-    # Required for ADMIN.
-    # Ignored/derived for SALESPERSON.
     distributor_id: UUID | None = None
 
-    # Required for ADMIN.
-    # Ignored/derived for SALESPERSON.
     salesperson_id: UUID | None = None
 
     sale_date: date
@@ -83,12 +53,24 @@ class SaleCreate(BaseModel):
     )
 
 
-# ============================================================
-# SALE RESPONSE
-# ============================================================
+class SaleItemResponse(BaseModel):
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
+
+    id: UUID
+    sale_id: UUID
+    product_id: UUID
+    variant_id: UUID | None
+    quantity: Decimal
+    selling_price: Decimal
+    line_total: Decimal
+
 
 class SaleResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
 
     id: UUID
     sale_number: str
@@ -105,6 +87,4 @@ class SaleResponse(BaseModel):
     created_by: UUID
     created_at: datetime
 
-    items: list[SaleItemResponse] = Field(
-        default_factory=list
-    )
+    items: list[SaleItemResponse] = []
