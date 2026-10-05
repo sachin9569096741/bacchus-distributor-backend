@@ -2,7 +2,7 @@ from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-
+from sqlalchemy.orm import Session
 from app.distributors.models import Distributor
 from app.geography.models import Area, State, Zone
 from app.salespersons.models import Salesperson

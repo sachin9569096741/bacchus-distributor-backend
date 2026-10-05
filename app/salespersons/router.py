@@ -11,6 +11,9 @@ from app.salespersons.schemas import (
     SalespersonStatusUpdate,
     SalespersonUpdate,
 )
+from app.salespersons.repository import (
+    get_salesperson_by_user_id,
+)
 from app.salespersons.service import (
     SalespersonServiceError,
     create_salesperson,
@@ -88,6 +91,33 @@ def list_salespersons_endpoint(
 # ============================================================
 # GET SALESPERSON
 # ============================================================
+
+# ============================================================
+# GET CURRENT SALESPERSON
+# ============================================================
+
+@router.get(
+    "/me",
+    response_model=SalespersonResponse,
+)
+def get_current_salesperson_endpoint(
+    db: Session = Depends(get_database),
+    current_user: User = Depends(
+        require_permission("salesperson.view")
+    ),
+):
+    salesperson = get_salesperson_by_user_id(
+        db,
+        current_user.id,
+    )
+
+    if salesperson is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Salesperson profile not found",
+        )
+
+    return salesperson
 
 @router.get(
     "/{salesperson_id}",
