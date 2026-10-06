@@ -6,6 +6,11 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 from app.audit.service import AuditService
 from app.core.security import hash_password
 from app.distributors.models import Distributor
+from app.distributors.models import Distributor
+from app.distributors.territory_models import (
+    DistributorArea,
+    DistributorZone,
+)
 from app.distributors.repository import (
     get_area,
     get_distributor_area_ids,
