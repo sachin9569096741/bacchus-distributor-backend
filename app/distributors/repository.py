@@ -4,9 +4,17 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.distributors.models import Distributor
+from app.distributors.territory_models import (
+    DistributorArea,
+    DistributorZone,
+)
 from app.geography.models import Area, State, Zone
 from app.users.models import User
 
+
+# ============================================================
+# DISTRIBUTOR
+# ============================================================
 
 def get_distributor_by_id(
     db: Session,
@@ -40,6 +48,7 @@ def get_distributors(
         )
     )
 
+
 def get_distributor_by_user_id(
     db: Session,
     user_id: UUID,
@@ -49,6 +58,12 @@ def get_distributor_by_user_id(
             Distributor.user_id == user_id
         )
     )
+
+
+# ============================================================
+# USERS
+# ============================================================
+
 def get_user_by_email(
     db: Session,
     email: str,
@@ -70,6 +85,10 @@ def get_user_by_mobile(
         )
     )
 
+
+# ============================================================
+# GEOGRAPHY
+# ============================================================
 
 def get_state(
     db: Session,
@@ -105,3 +124,115 @@ def get_area(
             Area.is_active.is_(True),
         )
     )
+
+
+# ============================================================
+# DISTRIBUTOR TERRITORY
+# ============================================================
+
+def get_distributor_zone_mappings(
+    db: Session,
+    distributor_id: UUID,
+) -> list[DistributorZone]:
+    return list(
+        db.scalars(
+            select(DistributorZone)
+            .where(
+                DistributorZone.distributor_id
+                == distributor_id
+            )
+            .order_by(DistributorZone.created_at)
+        )
+    )
+
+
+def get_distributor_area_mappings(
+    db: Session,
+    distributor_id: UUID,
+) -> list[DistributorArea]:
+    return list(
+        db.scalars(
+            select(DistributorArea)
+            .where(
+                DistributorArea.distributor_id
+                == distributor_id
+            )
+            .order_by(DistributorArea.created_at)
+        )
+    )
+
+
+def get_distributor_zone_ids(
+    db: Session,
+    distributor_id: UUID,
+) -> list[UUID]:
+    return list(
+        db.scalars(
+            select(DistributorZone.zone_id)
+            .where(
+                DistributorZone.distributor_id
+                == distributor_id
+            )
+            .order_by(DistributorZone.created_at)
+        )
+    )
+
+
+def get_distributor_area_ids(
+    db: Session,
+    distributor_id: UUID,
+) -> list[UUID]:
+    return list(
+        db.scalars(
+            select(DistributorArea.area_id)
+            .where(
+                DistributorArea.distributor_id
+                == distributor_id
+            )
+            .order_by(DistributorArea.created_at)
+        )
+    )
+
+
+def replace_distributor_zones(
+    db: Session,
+    distributor_id: UUID,
+    zone_ids: list[UUID],
+) -> None:
+
+    db.query(DistributorZone).filter(
+        DistributorZone.distributor_id
+        == distributor_id
+    ).delete(
+        synchronize_session=False,
+    )
+
+    for zone_id in zone_ids:
+        db.add(
+            DistributorZone(
+                distributor_id=distributor_id,
+                zone_id=zone_id,
+            )
+        )
+
+
+def replace_distributor_areas(
+    db: Session,
+    distributor_id: UUID,
+    area_ids: list[UUID],
+) -> None:
+
+    db.query(DistributorArea).filter(
+        DistributorArea.distributor_id
+        == distributor_id
+    ).delete(
+        synchronize_session=False,
+    )
+
+    for area_id in area_ids:
+        db.add(
+            DistributorArea(
+                distributor_id=distributor_id,
+                area_id=area_id,
+            )
+        )

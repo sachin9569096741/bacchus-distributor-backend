@@ -124,3 +124,30 @@ class Distributor(Base):
     zone = relationship("Zone")
     area = relationship("Area")
     user = relationship("User")
+
+    territory_zones = relationship(
+        "DistributorZone",
+        back_populates="distributor",
+        cascade="all, delete-orphan",
+    )
+
+    territory_areas = relationship(
+        "DistributorArea",
+        back_populates="distributor",
+        cascade="all, delete-orphan",
+    )
+
+
+    @property
+    def zone_ids(self) -> list[uuid.UUID]:
+        return [
+            mapping.zone_id
+            for mapping in self.territory_zones
+        ]
+
+    @property
+    def area_ids(self) -> list[uuid.UUID]:
+        return [
+            mapping.area_id
+            for mapping in self.territory_areas
+        ]

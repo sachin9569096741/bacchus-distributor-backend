@@ -10,12 +10,10 @@ from app.distributors.schemas import (
     DistributorStatusUpdate,
     DistributorUpdate,
 )
-from app.distributors.repository import (
-    get_distributor_by_user_id,
-)
 from app.distributors.service import (
     DistributorServiceError,
     create_distributor,
+    get_current_distributor,
     get_distributor,
     list_distributors,
     update_distributor,
@@ -91,8 +89,9 @@ def list_distributors_endpoint(
 
 
 # ============================================================
-# UPDATE DISTRIBUTOR STATUS
+# CURRENT DISTRIBUTOR
 # ============================================================
+
 @router.get(
     "/me",
     response_model=DistributorResponse,
@@ -103,18 +102,22 @@ def get_current_distributor_endpoint(
         require_permission("distributor.view")
     ),
 ):
-    distributor = get_distributor_by_user_id(
-        db,
-        current_user.id,
-    )
-
-    if distributor is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Distributor profile not found",
+    try:
+        return get_current_distributor(
+            db=db,
+            user_id=current_user.id,
         )
 
-    return distributor
+    except DistributorServiceError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+
+
+# ============================================================
+# UPDATE DISTRIBUTOR STATUS
+# ============================================================
 
 @router.patch(
     "/{distributor_id}/status",

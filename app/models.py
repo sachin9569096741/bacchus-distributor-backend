@@ -38,3 +38,9 @@ from app.notifications.models import Notification
 
 from app.audit.models import AuditLog
 from app.report_submissions.models import ReportSubmission
+
+from app.distributors.models import Distributor
+from app.distributors.territory_models import (
+    DistributorZone,
+    DistributorArea,
+)
