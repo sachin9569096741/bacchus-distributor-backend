@@ -2,7 +2,7 @@ import uuid
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-
+from sqlalchemy.orm import Session, joinedload, selectinload
 from app.audit.service import AuditService
 from app.core.security import hash_password
 from app.distributors.models import Distributor
@@ -419,9 +419,18 @@ def get_current_distributor(
     user_id: uuid.UUID,
 ) -> Distributor:
 
-    distributor = get_distributor_by_user_id(
-        db,
-        user_id,
+    distributor = db.scalar(
+        select(Distributor)
+        .options(
+            joinedload(Distributor.state),
+            selectinload(Distributor.territory_zones)
+                .joinedload("zone"),
+            selectinload(Distributor.territory_areas)
+                .joinedload("area"),
+        )
+        .where(
+            Distributor.user_id == user_id
+        )
     )
 
     if distributor is None:

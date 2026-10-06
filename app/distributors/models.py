@@ -151,3 +151,19 @@ class Distributor(Base):
             mapping.area_id
             for mapping in self.territory_areas
         ]
+
+    @property
+    def zones(self):
+        return [
+            mapping.zone
+            for mapping in self.territory_zones
+            if mapping.zone is not None
+        ]
+
+    @property
+    def areas(self):
+        return [
+            mapping.area
+            for mapping in self.territory_areas
+            if mapping.area is not None
+        ]
