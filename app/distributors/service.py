@@ -425,18 +425,18 @@ def get_current_distributor(
 ) -> Distributor:
 
     distributor = db.scalar(
-        select(Distributor)
-        .options(
-            joinedload(Distributor.state),
-            selectinload(Distributor.territory_zones)
-                .joinedload("zone"),
-            selectinload(Distributor.territory_areas)
-                .joinedload("area"),
-        )
-        .where(
-            Distributor.user_id == user_id
-        )
+    select(Distributor)
+    .options(
+        joinedload(Distributor.state),
+        joinedload(Distributor.zone),
+        joinedload(Distributor.area),
+        selectinload(Distributor.territory_zones),
+        selectinload(Distributor.territory_areas),
     )
+    .where(
+        Distributor.user_id == user_id
+    )
+)
 
     if distributor is None:
         raise DistributorServiceError(
