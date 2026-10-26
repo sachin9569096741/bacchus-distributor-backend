@@ -141,6 +141,7 @@ def validate_distributor_scope(
 # TERRITORY VALIDATION
 # ============================================================
 
+
 def validate_territory(
     db: Session,
     distributor: Distributor,
@@ -148,21 +149,32 @@ def validate_territory(
     zone_id: UUID,
     area_id: UUID,
 ) -> None:
+    """
+    Validate salesperson territory against geography and the
+    distributor's assigned zones and areas.
 
-    state = get_state(
-        db,
-        state_id,
-    )
+    Rules:
+    - State must exist.
+    - Zone must belong to the selected state.
+    - Area must belong to the selected zone and state.
+    - The distributor must be assigned to the selected zone.
+    - The distributor must be assigned to the selected area.
+    """
+
+    # ---------------------------------------------------------
+    # 1. Validate state
+    # ---------------------------------------------------------
+    state = get_state(db, state_id)
 
     if state is None:
         raise SalespersonServiceError(
             "Invalid or inactive state"
         )
 
-    zone = get_zone(
-        db,
-        zone_id,
-    )
+    # ---------------------------------------------------------
+    # 2. Validate zone
+    # ---------------------------------------------------------
+    zone = get_zone(db, zone_id)
 
     if zone is None:
         raise SalespersonServiceError(
@@ -174,10 +186,10 @@ def validate_territory(
             "Zone does not belong to the selected state"
         )
 
-    area = get_area(
-        db,
-        area_id,
-    )
+    # ---------------------------------------------------------
+    # 3. Validate area
+    # ---------------------------------------------------------
+    area = get_area(db, area_id)
 
     if area is None:
         raise SalespersonServiceError(
@@ -194,25 +206,33 @@ def validate_territory(
             "Area does not belong to the selected state"
         )
 
-    # --------------------------------------------------------
-    # Salesperson must remain inside distributor territory
-    # --------------------------------------------------------
-
+    # ---------------------------------------------------------
+    # 4. Validate distributor's state
+    # ---------------------------------------------------------
     if distributor.state_id != state_id:
         raise SalespersonServiceError(
             "Salesperson state must match distributor state"
         )
 
-    if distributor.zone_id != zone_id:
+    # ---------------------------------------------------------
+    # 5. Validate distributor's assigned zones
+    # ---------------------------------------------------------
+    assigned_zone_ids = set(distributor.zone_ids)
+
+    if zone_id not in assigned_zone_ids:
         raise SalespersonServiceError(
-            "Salesperson zone must match distributor zone"
+            "Selected zone is not assigned to this distributor"
         )
 
-    if distributor.area_id != area_id:
-        raise SalespersonServiceError(
-            "Salesperson area must match distributor area"
-        )
+    # ---------------------------------------------------------
+    # 6. Validate distributor's assigned areas
+    # ---------------------------------------------------------
+    assigned_area_ids = set(distributor.area_ids)
 
+    if area_id not in assigned_area_ids:
+        raise SalespersonServiceError(
+            "Selected area is not assigned to this distributor"
+        )
 
 # ============================================================
 # SALESPERSON CODE
