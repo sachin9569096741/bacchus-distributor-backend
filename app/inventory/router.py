@@ -533,6 +533,11 @@ def add_opening_stock(
 
             # Admin movement requires the target distributor
             # to be supplied through the request.
+            if payload.distributor_id is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="distributor_id is required for admin inventory movements.",
+                )
             distributor_id = payload.distributor_id
 
         else:
@@ -599,6 +604,12 @@ def receive_stock(
             distributor_id = distributor.id
 
         elif role in {"SUPER ADMIN", "MASTER ADMIN"}:
+
+            if payload.distributor_id is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="distributor_id is required for admin inventory movements.",
+                )
             distributor_id = payload.distributor_id
 
         else:
@@ -670,6 +681,11 @@ def adjust_stock(
             distributor_id = distributor.id
 
         elif role in {"SUPER ADMIN", "MASTER ADMIN"}:
+            if payload.distributor_id is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="distributor_id is required for admin inventory movements.",
+                )
             distributor_id = payload.distributor_id
 
         else:
@@ -736,6 +752,12 @@ def record_damage(
             distributor_id = distributor.id
 
         elif role in {"SUPER ADMIN", "MASTER ADMIN"}:
+
+            if payload.distributor_id is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="distributor_id is required for admin inventory movements.",
+                )
             distributor_id = payload.distributor_id
 
         else:

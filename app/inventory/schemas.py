@@ -15,7 +15,7 @@ class InventoryMovementCreate(BaseModel):
 
     quantity: Decimal = Field(gt=0, max_digits=14, decimal_places=3)
 
-    movement_type: InventoryMovementType
+    movement_type: InventoryMovementType | None = None
 
     source: str | None = Field(default=None, max_length=100)
     destination: str | None = Field(default=None, max_length=100)
@@ -43,7 +43,7 @@ class InventoryLedgerResponse(BaseModel):
     product_id: UUID
     variant_id: UUID | None
     quantity: Decimal
-    movement_type: InventoryMovementType
+    movement_type: InventoryMovementType | None
     source: str | None
     destination: str | None
     reference_id: UUID | None
