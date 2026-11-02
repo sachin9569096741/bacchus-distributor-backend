@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
-from app.inventory.models import InventoryMovementType
 from app.inventory.schemas import (
     InventoryLedgerResponse,
     InventoryMovementCreate,
@@ -87,12 +86,7 @@ def list_inventory(
     try:
         role = current_user.role.name
 
-        # ----------------------------------------------------
-        # ADMIN
-        # ----------------------------------------------------
-
         if role in {"SUPER ADMIN", "MASTER ADMIN"}:
-
             if distributor_id is None:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -111,12 +105,7 @@ def list_inventory(
                 distributor_id=distributor_id,
             )
 
-        # ----------------------------------------------------
-        # DISTRIBUTOR
-        # ----------------------------------------------------
-
         if role == "DISTRIBUTOR":
-
             from app.distributors.repository import (
                 get_distributor_by_user_id,
             )
@@ -132,7 +121,6 @@ def list_inventory(
                     detail="Distributor profile not found.",
                 )
 
-            # Frontend cannot change distributor scope.
             if (
                 distributor_id is not None
                 and distributor_id != distributor.id
@@ -154,12 +142,7 @@ def list_inventory(
                 distributor_id=distributor.id,
             )
 
-        # ----------------------------------------------------
-        # SALESPERSON
-        # ----------------------------------------------------
-
         if role == "SALESPERSON":
-
             from app.salespersons.repository import (
                 get_salesperson_by_user_id,
             )
@@ -175,7 +158,6 @@ def list_inventory(
                     detail="Salesperson profile not found.",
                 )
 
-            # Salesperson can only see own stock.
             if (
                 salesperson_id is not None
                 and salesperson_id != salesperson.id
@@ -201,99 +183,9 @@ def list_inventory(
 
 
 # ============================================================
-# GET SINGLE INVENTORY POSITION
+# RECENT INVENTORY LEDGER
+# Keep this static route BEFORE /{inventory_id}
 # ============================================================
-
-@router.get(
-    "/{inventory_id}",
-    response_model=InventoryResponse,
-)
-def get_inventory(
-    inventory_id: UUID,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-    _: User = Depends(require_permission("inventory.view")),
-):
-    """
-    Get one inventory position.
-
-    Scope validation is performed before exposing the record.
-    """
-
-    try:
-        inventory = InventoryService.get_inventory(
-            db=db,
-            inventory_id=inventory_id,
-        )
-
-        role = current_user.role.name
-
-        # ----------------------------------------------------
-        # ADMIN
-        # ----------------------------------------------------
-
-        if role in {"SUPER ADMIN", "MASTER ADMIN"}:
-            return inventory
-
-        # ----------------------------------------------------
-        # DISTRIBUTOR
-        # ----------------------------------------------------
-
-        if role == "DISTRIBUTOR":
-
-            from app.distributors.repository import (
-                get_distributor_by_user_id,
-            )
-
-            distributor = get_distributor_by_user_id(
-                db=db,
-                user_id=current_user.id,
-            )
-
-            if (
-                distributor is None
-                or inventory.distributor_id != distributor.id
-            ):
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="You cannot access this inventory.",
-                )
-
-            return inventory
-
-        # ----------------------------------------------------
-        # SALESPERSON
-        # ----------------------------------------------------
-
-        if role == "SALESPERSON":
-
-            from app.salespersons.repository import (
-                get_salesperson_by_user_id,
-            )
-
-            salesperson = get_salesperson_by_user_id(
-                db=db,
-                user_id=current_user.id,
-            )
-
-            if (
-                salesperson is None
-                or inventory.salesperson_id != salesperson.id
-            ):
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="You cannot access this inventory.",
-                )
-
-            return inventory
-
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Insufficient inventory access.",
-        )
-
-    except InventoryServiceError as exc:
-        _handle_inventory_error(exc)
 
 @router.get(
     "/ledger/recent",
@@ -315,12 +207,7 @@ def recent_inventory_ledger(
 
     role = current_user.role.name
 
-    # --------------------------------------------------------
-    # ADMIN
-    # --------------------------------------------------------
-
     if role in {"SUPER ADMIN", "MASTER ADMIN"}:
-
         if distributor_id is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -333,12 +220,7 @@ def recent_inventory_ledger(
             limit=limit,
         )
 
-    # --------------------------------------------------------
-    # DISTRIBUTOR
-    # --------------------------------------------------------
-
     if role == "DISTRIBUTOR":
-
         from app.distributors.repository import (
             get_distributor_by_user_id,
         )
@@ -375,6 +257,87 @@ def recent_inventory_ledger(
     )
 
 
+# ============================================================
+# GET SINGLE INVENTORY POSITION
+# ============================================================
+
+@router.get(
+    "/{inventory_id}",
+    response_model=InventoryResponse,
+)
+def get_inventory(
+    inventory_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: User = Depends(require_permission("inventory.view")),
+):
+    """
+    Get one inventory position.
+
+    Scope validation is performed before exposing the record.
+    """
+
+    try:
+        inventory = InventoryService.get_inventory(
+            db=db,
+            inventory_id=inventory_id,
+        )
+
+        role = current_user.role.name
+
+        if role in {"SUPER ADMIN", "MASTER ADMIN"}:
+            return inventory
+
+        if role == "DISTRIBUTOR":
+            from app.distributors.repository import (
+                get_distributor_by_user_id,
+            )
+
+            distributor = get_distributor_by_user_id(
+                db=db,
+                user_id=current_user.id,
+            )
+
+            if (
+                distributor is None
+                or inventory.distributor_id != distributor.id
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You cannot access this inventory.",
+                )
+
+            return inventory
+
+        if role == "SALESPERSON":
+            from app.salespersons.repository import (
+                get_salesperson_by_user_id,
+            )
+
+            salesperson = get_salesperson_by_user_id(
+                db=db,
+                user_id=current_user.id,
+            )
+
+            if (
+                salesperson is None
+                or inventory.salesperson_id != salesperson.id
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You cannot access this inventory.",
+                )
+
+            return inventory
+
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient inventory access.",
+        )
+
+    except InventoryServiceError as exc:
+        _handle_inventory_error(exc)
+
 
 # ============================================================
 # INVENTORY LEDGER
@@ -402,22 +365,13 @@ def get_inventory_ledger(
 
         role = current_user.role.name
 
-        # ----------------------------------------------------
-        # ADMIN
-        # ----------------------------------------------------
-
         if role in {"SUPER ADMIN", "MASTER ADMIN"}:
             return InventoryService.get_ledger(
                 db=db,
                 inventory_id=inventory_id,
             )
 
-        # ----------------------------------------------------
-        # DISTRIBUTOR
-        # ----------------------------------------------------
-
         if role == "DISTRIBUTOR":
-
             from app.distributors.repository import (
                 get_distributor_by_user_id,
             )
@@ -441,12 +395,7 @@ def get_inventory_ledger(
                 inventory_id=inventory_id,
             )
 
-        # ----------------------------------------------------
-        # SALESPERSON
-        # ----------------------------------------------------
-
         if role == "SALESPERSON":
-
             from app.salespersons.repository import (
                 get_salesperson_by_user_id,
             )
@@ -480,11 +429,6 @@ def get_inventory_ledger(
 
 
 # ============================================================
-# RECENT LEDGER
-# ============================================================
-
-
-# ============================================================
 # OPENING STOCK
 # ============================================================
 
@@ -511,7 +455,6 @@ def add_opening_stock(
         role = current_user.role.name
 
         if role == "DISTRIBUTOR":
-
             from app.distributors.repository import (
                 get_distributor_by_user_id,
             )
@@ -530,14 +473,12 @@ def add_opening_stock(
             distributor_id = distributor.id
 
         elif role in {"SUPER ADMIN", "MASTER ADMIN"}:
-
-            # Admin movement requires the target distributor
-            # to be supplied through the request.
             if payload.distributor_id is None:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="distributor_id is required for admin inventory movements.",
                 )
+
             distributor_id = payload.distributor_id
 
         else:
@@ -546,7 +487,7 @@ def add_opening_stock(
                 detail="You cannot add opening stock.",
             )
 
-        return InventoryService.add_opening_stock(
+        inventory = InventoryService.add_opening_stock(
             db=db,
             distributor_id=distributor_id,
             product_id=payload.product_id,
@@ -557,9 +498,22 @@ def add_opening_stock(
             remarks=payload.remarks,
         )
 
+        db.commit()
+        db.refresh(inventory)
+
+        return inventory
+
     except InventoryServiceError as exc:
         db.rollback()
         _handle_inventory_error(exc)
+
+    except HTTPException:
+        db.rollback()
+        raise
+
+    except Exception:
+        db.rollback()
+        raise
 
 
 # ============================================================
@@ -585,7 +539,6 @@ def receive_stock(
         role = current_user.role.name
 
         if role == "DISTRIBUTOR":
-
             from app.distributors.repository import (
                 get_distributor_by_user_id,
             )
@@ -604,12 +557,12 @@ def receive_stock(
             distributor_id = distributor.id
 
         elif role in {"SUPER ADMIN", "MASTER ADMIN"}:
-
             if payload.distributor_id is None:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="distributor_id is required for admin inventory movements.",
                 )
+
             distributor_id = payload.distributor_id
 
         else:
@@ -618,7 +571,7 @@ def receive_stock(
                 detail="You cannot receive stock.",
             )
 
-        return InventoryService.receive_stock(
+        inventory = InventoryService.receive_stock(
             db=db,
             distributor_id=distributor_id,
             product_id=payload.product_id,
@@ -629,9 +582,22 @@ def receive_stock(
             remarks=payload.remarks,
         )
 
+        db.commit()
+        db.refresh(inventory)
+
+        return inventory
+
     except InventoryServiceError as exc:
         db.rollback()
         _handle_inventory_error(exc)
+
+    except HTTPException:
+        db.rollback()
+        raise
+
+    except Exception:
+        db.rollback()
+        raise
 
 
 # ============================================================
@@ -662,7 +628,6 @@ def adjust_stock(
         role = current_user.role.name
 
         if role == "DISTRIBUTOR":
-
             from app.distributors.repository import (
                 get_distributor_by_user_id,
             )
@@ -686,6 +651,7 @@ def adjust_stock(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="distributor_id is required for admin inventory movements.",
                 )
+
             distributor_id = payload.distributor_id
 
         else:
@@ -694,7 +660,7 @@ def adjust_stock(
                 detail="You cannot adjust inventory.",
             )
 
-        return InventoryService.adjust_stock(
+        inventory = InventoryService.adjust_stock(
             db=db,
             distributor_id=distributor_id,
             product_id=payload.product_id,
@@ -706,9 +672,22 @@ def adjust_stock(
             remarks=payload.remarks,
         )
 
+        db.commit()
+        db.refresh(inventory)
+
+        return inventory
+
     except InventoryServiceError as exc:
         db.rollback()
         _handle_inventory_error(exc)
+
+    except HTTPException:
+        db.rollback()
+        raise
+
+    except Exception:
+        db.rollback()
+        raise
 
 
 # ============================================================
@@ -733,7 +712,6 @@ def record_damage(
         role = current_user.role.name
 
         if role == "DISTRIBUTOR":
-
             from app.distributors.repository import (
                 get_distributor_by_user_id,
             )
@@ -752,12 +730,12 @@ def record_damage(
             distributor_id = distributor.id
 
         elif role in {"SUPER ADMIN", "MASTER ADMIN"}:
-
             if payload.distributor_id is None:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="distributor_id is required for admin inventory movements.",
                 )
+
             distributor_id = payload.distributor_id
 
         else:
@@ -766,7 +744,7 @@ def record_damage(
                 detail="You cannot record inventory damage.",
             )
 
-        return InventoryService.record_damage(
+        inventory = InventoryService.record_damage(
             db=db,
             distributor_id=distributor_id,
             product_id=payload.product_id,
@@ -778,6 +756,19 @@ def record_damage(
             remarks=payload.remarks,
         )
 
+        db.commit()
+        db.refresh(inventory)
+
+        return inventory
+
     except InventoryServiceError as exc:
         db.rollback()
         _handle_inventory_error(exc)
+
+    except HTTPException:
+        db.rollback()
+        raise
+
+    except Exception:
+        db.rollback()
+        raise
