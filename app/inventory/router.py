@@ -772,3 +772,172 @@ def record_damage(
     except Exception:
         db.rollback()
         raise
+
+
+
+
+# ============================================================
+# TRANSFER STOCK: DISTRIBUTOR → SALESPERSON
+# ============================================================
+
+@router.post(
+    "/transfer-to-salesperson",
+    status_code=status.HTTP_200_OK,
+)
+def transfer_stock_to_salesperson(
+    payload: InventoryMovementCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: User = Depends(require_permission("inventory.manage")),
+):
+    """
+    Transfer stock from distributor inventory
+    to a salesperson's inventory.
+
+    Both inventory positions and ledger entries are
+    updated in the same database transaction.
+    """
+
+    try:
+        role = current_user.role.name
+
+        # ----------------------------------------------------
+        # 1. Resolve distributor
+        # ----------------------------------------------------
+
+        if role == "DISTRIBUTOR":
+            from app.distributors.repository import (
+                get_distributor_by_user_id,
+            )
+
+            distributor = get_distributor_by_user_id(
+                db=db,
+                user_id=current_user.id,
+            )
+
+            if distributor is None:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Distributor profile not found.",
+                )
+
+            distributor_id = distributor.id
+
+        elif role in {"SUPER ADMIN", "MASTER ADMIN"}:
+            if payload.distributor_id is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="distributor_id is required for admin stock transfers.",
+                )
+
+            distributor_id = payload.distributor_id
+
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You cannot transfer distributor stock.",
+            )
+
+        # ----------------------------------------------------
+        # 2. Validate salesperson
+        # ----------------------------------------------------
+
+        if payload.salesperson_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="salesperson_id is required.",
+            )
+
+        from app.salespersons.repository import (
+            get_salesperson_by_id,
+        )
+
+        salesperson = get_salesperson_by_id(
+            db=db,
+            salesperson_id=payload.salesperson_id,
+        )
+
+        if salesperson is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Salesperson not found.",
+            )
+
+        if not salesperson.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Salesperson is inactive.",
+            )
+
+        if salesperson.distributor_id != distributor_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Salesperson does not belong to this distributor.",
+            )
+
+        # ----------------------------------------------------
+        # 3. Transfer stock
+        # ----------------------------------------------------
+
+        distributor_inventory, salesperson_inventory = (
+            InventoryService.issue_stock_to_salesperson(
+                db=db,
+                distributor_id=distributor_id,
+                salesperson_id=salesperson.id,
+                product_id=payload.product_id,
+                variant_id=payload.variant_id,
+                quantity=payload.quantity,
+                performed_by=current_user.id,
+                reference_id=payload.reference_id,
+                remarks=payload.remarks,
+            )
+        )
+
+        # ----------------------------------------------------
+        # 4. Commit transaction
+        # ----------------------------------------------------
+
+        db.commit()
+
+        db.refresh(distributor_inventory)
+        db.refresh(salesperson_inventory)
+
+        return {
+            "success": True,
+            "message": "Stock transferred to salesperson successfully.",
+            "transfer": {
+                "product_id": str(payload.product_id),
+                "variant_id": (
+                    str(payload.variant_id)
+                    if payload.variant_id
+                    else None
+                ),
+                "quantity_transferred": payload.quantity,
+                "salesperson_id": str(salesperson.id),
+                "salesperson_name": getattr(
+                    salesperson,
+                    "name",
+                    None,
+                ),
+            },
+            "distributor_inventory": {
+                "inventory_id": str(distributor_inventory.id),
+                "remaining_quantity": distributor_inventory.quantity,
+            },
+            "salesperson_inventory": {
+                "inventory_id": str(salesperson_inventory.id),
+                "available_quantity": salesperson_inventory.quantity,
+            },
+        }
+
+    except InventoryServiceError as exc:
+        db.rollback()
+        _handle_inventory_error(exc)
+
+    except HTTPException:
+        db.rollback()
+        raise
+
+    except Exception:
+        db.rollback()
+        raise
