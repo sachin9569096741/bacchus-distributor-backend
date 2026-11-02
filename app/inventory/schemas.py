@@ -8,7 +8,7 @@ from app.inventory.models import InventoryMovementType
 
 
 class InventoryMovementCreate(BaseModel):
-    distributor_id: UUID
+    distributor_id: UUID | None = None
     salesperson_id: UUID | None = None
     product_id: UUID
     variant_id: UUID | None = None
